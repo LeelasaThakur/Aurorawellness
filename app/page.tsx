@@ -53,12 +53,7 @@ interface ISpeechRecognitionEvent {
   };
 }
 
-declare global {
-  interface Window {
-    SpeechRecognition: { new (): ISpeechRecognition };
-    webkitSpeechRecognition: { new (): ISpeechRecognition };
-  }
-}
+
 
 interface UserProfile {
   name: string;
@@ -884,9 +879,10 @@ function ChatView({ userProfile }: { userProfile: UserProfile | null }) {
   const toggleVoice = () => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const win = window as any;
+    const SpeechRecognitionConstructor = win.SpeechRecognition || win.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionConstructor) {
       alert('Voice input is not supported in your browser. Please use Chrome for the best experience.');
       return;
     }
@@ -900,12 +896,12 @@ function ChatView({ userProfile }: { userProfile: UserProfile | null }) {
     setIsListening(true);
     setAuroraState('listening');
 
-    const recognition = new SpeechRecognition();
+    const recognition: ISpeechRecognition = new SpeechRecognitionConstructor();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: ISpeechRecognitionEvent) => {
       let transcript = '';
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
