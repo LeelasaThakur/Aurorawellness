@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import AuroraAvatar from './AuroraAvatar';
@@ -14,53 +14,64 @@ const PHASES = [
 
 const TOTAL_CYCLE = PHASES.reduce((s, p) => s + p.duration, 0); // 19s
 
+interface TimerState {
+  phaseIndex: number;
+  countdown: number;
+  cycles: number;
+}
+
 export default function EmergencyCalmButton({
   className = '',
 }: {
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [countdown, setCountdown] = useState(PHASES[0].duration);
-  const [cycles, setCycles] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [timerState, setTimerState] = useState<TimerState>({
+    phaseIndex: 0,
+    countdown: PHASES[0].duration,
+    cycles: 0,
+  });
 
-  const phase = PHASES[phaseIndex];
+  const phase = PHASES[timerState.phaseIndex];
 
   /* Timer logic */
   useEffect(() => {
     if (!open) return;
 
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          setPhaseIndex((pi) => {
-            const next = (pi + 1) % PHASES.length;
-            if (next === 0) setCycles((c) => c + 1);
-            setCountdown(PHASES[next].duration);
-            return next;
-          });
-          return 0; // will be overwritten above
+    const intervalId = setInterval(() => {
+      setTimerState((prev) => {
+        if (prev.countdown <= 1) {
+          const nextPhaseIndex = (prev.phaseIndex + 1) % PHASES.length;
+          const nextCycles = nextPhaseIndex === 0 ? prev.cycles + 1 : prev.cycles;
+          return {
+            phaseIndex: nextPhaseIndex,
+            countdown: PHASES[nextPhaseIndex].duration,
+            cycles: nextCycles,
+          };
         }
-        return prev - 1;
+        return {
+          ...prev,
+          countdown: prev.countdown - 1,
+        };
       });
     }, 1000);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      clearInterval(intervalId);
     };
   }, [open]);
 
   const handleOpen = useCallback(() => {
-    setPhaseIndex(0);
-    setCountdown(PHASES[0].duration);
-    setCycles(0);
+    setTimerState({
+      phaseIndex: 0,
+      countdown: PHASES[0].duration,
+      cycles: 0,
+    });
     setOpen(true);
   }, []);
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
   }, []);
 
   /* Trap focus when overlay is open */
@@ -153,7 +164,7 @@ export default function EmergencyCalmButton({
                     aria-live="polite"
                     aria-atomic="true"
                   >
-                    {countdown}
+                    {timerState.countdown}
                   </span>
                 </div>
               </motion.div>
@@ -173,7 +184,7 @@ export default function EmergencyCalmButton({
 
             {/* Cycle count */}
             <p className="text-white/40 text-sm">
-              Cycle {cycles + 1} &middot; {TOTAL_CYCLE}s per cycle
+              Cycle {timerState.cycles + 1} &middot; {TOTAL_CYCLE}s per cycle
             </p>
             <p className="text-white/60 text-sm mt-2 max-w-xs text-center">
               Follow the circle. Breathe in through your nose, hold gently, then
