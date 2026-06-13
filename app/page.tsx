@@ -27,8 +27,39 @@ import {
 } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
-/*  TYPES                                                              */
+/*  TYPES & GLOBAL DECLARATIONS                                        */
 /* ------------------------------------------------------------------ */
+
+interface ISpeechRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: ISpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+
+interface ISpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+    length: number;
+  };
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: { new (): ISpeechRecognition };
+    webkitSpeechRecognition: { new (): ISpeechRecognition };
+  }
+}
+
 interface UserProfile {
   name: string;
   age: number;
@@ -851,7 +882,11 @@ function ChatView({ userProfile }: { userProfile: UserProfile | null }) {
 
   // Voice input
   const toggleVoice = () => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
       alert('Voice input is not supported in your browser. Please use Chrome for the best experience.');
       return;
     }
@@ -865,18 +900,16 @@ function ChatView({ userProfile }: { userProfile: UserProfile | null }) {
     setIsListening(true);
     setAuroraState('listening');
 
-    const SpeechRecognition = (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join('');
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
       setInput(transcript);
     };
 
